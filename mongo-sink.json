@@ -1,0 +1,17 @@
+//Funciona para JSON
+{
+    "name": "mongo-sink",
+    "config": {
+        "connector.class": "com.mongodb.kafka.connect.MongoSinkConnector",
+        "max.num.retries": 2,
+        "tasks.max": 2,
+        "topics": "promos",
+        "connection.uri": "mongodb://root:winox1083@mongo:27017",
+        "database": "wpromo",
+        "collection": "promos",
+        "key.converter": "org.apache.kafka.connect.storage.StringConverter",
+        "value.converter": "org.apache.kafka.connect.json.JsonConverter",
+        "value.converter.schemas.enable":false,
+        "value.converter.schema.registry.url":"http://localhost:8081"
+    }
+}

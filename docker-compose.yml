@@ -1,0 +1,160 @@
+version: "3.6"
+services:
+  zookeeper:
+    image: confluentinc/cp-zookeeper:6.2.0
+    hostname: zookeeper
+    container_name: wpromo_zookeeper
+    ports:
+      - "2181:2181"
+    networks:
+      - net_wpromo
+    environment:
+      ZOOKEEPER_CLIENT_PORT: 2181
+      ZOOKEEPER_TICK_TIME: 2000
+    volumes:
+      - vol-wpromo-zookeeper:/var/lib/zookeeper/data
+      - vol-wpromo-zookeeper-log:/var/lib/zookeeper/log
+
+  kafka:
+    image: confluentinc/cp-kafka:6.2.0
+    hostname: kafka
+    container_name: wpromo_kafka
+    depends_on:
+      - zookeeper
+    ports:
+      - "29092:29092"
+      - "9092:9092"
+    networks:
+      - net_wpromo
+    environment:
+      KAFKA_BROKER_ID: 1
+      KAFKA_ZOOKEEPER_CONNECT: "zookeeper:2181"
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: PLAINTEXT:PLAINTEXT,PLAINTEXT_HOST:PLAINTEXT
+      KAFKA_ADVERTISED_LISTENERS: "PLAINTEXT://kafka:29092,PLAINTEXT_HOST://localhost:9092"
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+      KAFKA_CONFLUENT_SCHEMA_REGISTRY_URL: "http://schema-registry:8081"
+    volumes:
+      - vol-wpromo-kafka:/var/lib/kafka/data
+
+  schema-registry:
+    image: confluentinc/cp-schema-registry:6.2.0
+    hostname: schema-registry
+    container_name: wpromo_schema-registry
+    depends_on:
+      - zookeeper
+      - kafka
+    ports:
+      - "8081:8081"
+    networks:
+      - net_wpromo
+    environment:
+      SCHEMA_REGISTRY_HOST_NAME: schema-registry
+      SCHEMA_REGISTRY_KAFKASTORE_BOOTSTRAP_SERVERS: "kafka:29092"
+      SCHEMA_REGISTRY_LISTENERS: "http://0.0.0.0:8081"
+      SCHEMA_REGISTRY_ACCESS_CONTROL_ALLOW_ORIGIN: "*"
+
+
+  kafka-connect:
+    image: confluentinc/cp-kafka-connect:6.2.0
+    hostname: kafka-connect
+    container_name: wpromo_kafka-connect
+    depends_on:
+      - schema-registry
+    ports:
+      - "8083:8083"
+    networks:
+      - net_wpromo
+    logging:
+      options:
+        max-size: "2000MB"
+        max-file: "300"    
+    environment:
+      CONNECT_BOOTSTRAP_SERVERS: "kafka:29092"
+      CONNECT_REST_PORT: 8083
+      CONNECT_GROUP_ID: wpromo
+      CONNECT_CONFIG_STORAGE_TOPIC: _wpromo-configs
+      CONNECT_OFFSET_STORAGE_TOPIC: _wpromo-offsets
+      CONNECT_STATUS_STORAGE_TOPIC: _wpromo-status
+      CONNECT_KEY_CONVERTER: org.apache.kafka.connect.storage.StringConverter
+      CONNECT_VALUE_CONVERTER: org.apache.kafka.connect.json.JsonConverter
+      CONNECT_VALUE_CONVERTER_SCHEMA_REGISTRY_URL: "http://schema-registry:8081"
+      CONNECT_REST_ADVERTISED_HOST_NAME: kafka-connect
+      CONNECT_CONFIG_STORAGE_REPLICATION_FACTOR: 1
+      CONNECT_OFFSET_STORAGE_REPLICATION_FACTOR: 1
+      CONNECT_STATUS_STORAGE_REPLICATION_FACTOR: 1
+
+    #  ---------------
+      CONNECT_PLUGIN_PATH: /usr/share/java,/usr/share/confluent-hub-components,/data/connect-jars
+    # If you want to use the Confluent Hub installer to d/l component, but make them available
+    # when running this offline, spin up the stack once and then run : 
+    #   docker cp kafka-connect:/usr/share/confluent-hub-components ./data/connect-jars
+    volumes:
+      - vol-wpromo-kafka-connect:/data
+    # In the command section, $ are replaced with $$ to avoid the error 'Invalid interpolation format for "command" option'
+    command:
+      - bash
+      - -c
+      - |
+        echo "Installing Connector"
+        confluent-hub install --no-prompt mongodb/kafka-connect-mongodb:1.6.1
+        #
+        echo "Launching Kafka Connect worker"
+        /etc/confluent/docker/run &
+        #
+        sleep infinity    
+
+  # MongoDB 
+  mongo:
+    image: mongo
+    hostname: mongo
+    container_name: wpromo_kafka_mongo
+    volumes:
+      - vol-wpromo-mongo:/data/db
+    networks:
+      - net_wpromo
+    ports:
+      - "27017:27017"
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: root
+      MONGO_INITDB_ROOT_PASSWORD: winox1083  
+      
+  rest-proxy:
+    image: confluentinc/cp-kafka-rest:6.2.0
+    hostname: rest-proxy
+    depends_on:
+      - schema-registry
+      - mongo
+    ports:
+      - "8082:8082"
+    hostname: rest-proxy
+    container_name: wpromo_rest-proxy
+    networks:
+      - net_wpromo 
+    environment:
+      KAFKA_REST_HOST_NAME: rest-proxy
+      KAFKA_REST_LISTENERS: "http://0.0.0.0:8082"
+      KAFKA_REST_BOOTSTRAP_SERVERS: "kafka:29092"
+      KAFKA_REST_SCHEMA_REGISTRY_URL: "http://schema-registry:8081"
+
+  kafka-topics-ui:
+    image: landoop/kafka-topics-ui:0.9.4
+    environment:
+      KAFKA_REST_PROXY_URL: "http://rest-proxy:8082"
+      PROXY: 'TRUE'
+    depends_on:
+      - rest-proxy
+    ports:
+      - 8000:8000  
+    networks:
+      - net_wpromo 
+
+networks:
+  net_wpromo:
+    driver: bridge
+
+volumes:
+  vol-wpromo-zookeeper:
+  vol-wpromo-zookeeper-log:
+  vol-wpromo-kafka:  
+  vol-wpromo-kafka-connect:
+  vol-wpromo-mongo:

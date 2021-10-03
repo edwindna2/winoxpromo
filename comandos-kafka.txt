@@ -1,0 +1,66 @@
+//NOTAS
+Si dos consumidores pertenencen al mismo grupo de consumidores entonces kafka utiliza el modelo tradicional de colas de
+si dos consumidores pertenencen a distintos grupos de consumidores entonces kafka utiliza el modelo de pub/sub
+
+Hay que crear las particiones y replicas ya que podr default el num de particiones 1 y replicas 1
+
+
+//Entrar a sh de kafka en docker
+docker-compose exec kafka sh
+
+//CREA TOPIC
+kafka-topics --create --if-not-exists --zookeeper zookeeper:2181 --replication-factor 1 --partitions 2 --topic promos
+
+//LISTA LOS TOPICS
+kafka-topics --list --zookeeper zookeeper:2181
+
+kafka-console-consumer --bootstrap-server kafka:29092 --topic promos --group connect-mongo-sink-test
+kakfa-console-producer --broker-list kafka:29092 --topic promos
+
+//DESCRIBE UN TOPIC
+kafka-topics --describe --topic promos --bootstrap-server kafka:29092
+
+//LISTA NUMERO DE consumidores
+kafka-consumer-groups --list --bootstrap-server kafka:29092
+
+//DESCRIBE LOS GRUPOS DE CONSUMIDORES
+kafka-consumer-groups --bootstrap-server kafka:29092 --all-groups --all-topics --describe
+
+//ELIMINA UN TOPIC
+kafka-topics --delete --topic promos --zookeeper zookeeper:2181
+
+//MODIFICA UN TOPIC AGREGANDO UNA PARTICION
+kafka-topics --zookeeper zookeeper:2181 --alter --topic promos --partitions 2
+
+//MODIFICA UN TOPIC AGREGANDO UNA REPLICA
+kafka-topics --zookeeper zookeeper:2181 --alter --topic promos -replication-factor 2
+
+
+
+Crear un topic de Kafka con factor de replicación de 3 y dos particiones:
+
+/bin/kafka-topics.sh --create --zookeeper kafka:29092 --replication-factor 3 --partitions 2 --topic testtopic
+
+Visualizar detalles de un topic de Kafka:
+
+/bin/kafka-topics.sh --describe --zookeeper kafka:29092 --topic testtopic
+
+Listar los topics de Kafka:
+
+./bin/kafka-topics.sh --list --zookeeper kafka:29092
+
+Ejecutar consumidor de consola de Kafka sobre un topic:
+
+/bin/kafka-console-consumer.sh --bootstrap-server kafka:29092 --topic testtopic --group grupo1
+
+Ejecutar productor de consola de Kafka sobre un topic:
+
+./bin/kafka-console-producer.sh --broker-list kafka:29092,kafka:29093 --topic testtopic
+
+Describir los grupos de consumidores en Kafka:
+
+./bin/kafka-consumer-groups.sh --bootstrap-server kafka:29092 --group grupo1 --describe
+
+Ejecutar Kafka Mirror Maker sobre un topic con la configuración del consumidor y productor:
+
+./bin/kafka-mirror-maker.sh --consumer.config config/consumer.properties --producer.config config/producer.properties --whitelist testtopic 

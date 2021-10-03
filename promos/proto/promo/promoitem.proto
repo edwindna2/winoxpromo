@@ -1,0 +1,16 @@
+syntax = "proto3";
+package gihub.com.dna2.promos;
+
+//import "google/protobuf/timestamp.proto";
+option go_package = "proto/promo";
+
+message PromoItem {
+    int32 chain = 1;
+    string name = 2;  // Unique ID number for this person.
+    string link = 3;
+    double basePrice = 4;
+    double price = 5;
+    string category = 6;
+    bool deal = 7;
+    //google.protobuf.Timestamp createdOf = 8;
+}
